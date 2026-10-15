@@ -75,3 +75,17 @@ The routes usually handle HTTP input/output while services handle database queri
 **Your side-effect check:** All four new feed tests passed. They check yesterday at 23:00 and 23:59:59 is excluded, midnight is included, multiple listens yield only the latest song per friend, multiple friends remain sorted newest first, and self/nonfriend events stay excluded. They also cover no friends and a missing user. Crucially, the older listen still appears in `/feed/viewer/activity`, which should retain historical activity. This confirms the narrower cutoff affects only listening-now, without deleting events or filtering the separate activity feed.
 
 **Regression tests:** `tests/test_issue2_feed_regression.py`; both previous-day boundary tests failed before the fix.
+
+### **Issue #3 — The same song keeps showing up twice in search**
+
+**How you reproduced it:** Started the seeded Flask app and requested `/songs/search?q=Anthem` over HTTP. It returned `count: 3` with the same song ID, title, and three tags repeated three times. The original multi-tag search test also failed (`3` instead of `1`). A new API regression created a three-tag song plus a distinct recording with the same title: searching mixed-case `aNtHeM` produced four rows instead of two.
+
+**How you found the root cause:** The investigation followed `routes/songs.py:search()` → `services/search_service.py:search_songs()` → the `select(Song).outerjoin(song_tags, ...)` query. `models.py` confirmed that each song/tag pair is a separate association row and that `Song.tags` is loaded as a relationship for serialization. Inspecting the actual response established that repeated entries shared one primary key; they were not duplicate song records. Comparing zero-, one-, and three-tag fixtures isolated SQL join multiplicity as the trigger.
+
+**The root cause:** The outer join creates one SQL row for each matching song/tag pair. `db.session.execute(...).scalars().all()` retains repeated references to the same `Song` identity in the result sequence. The final list comprehension serializes each reference again. Thus three tags produce three search entries; one tag or no tags produces only one. ORM identity reuse alone does not make a scalar result list unique.
+
+**Your fix:** Added `.unique()` between `.scalars()` and `.all()`. This deduplicates by mapped entity identity before serialization, preserving all distinct songs and their full tag lists. Deduplicating by title would incorrectly merge different recordings with the same title, so the regression explicitly checks that case.
+
+**Your side-effect check:** All five original search tests and the new endpoint regression passed (six tests total). They cover zero and one tag, multiple tags, artist matching, mixed-case title matching, no match, and the missing-query 400 response. The new regression asserts all three tag names remain present and both distinct same-title IDs survive. These checks show that removing duplicate result identities does not discard tags or separate recordings, or change search matching/error behavior.
+
+**Regression tests:** `tests/test_issue3_search_regression.py`; its two-recording case failed with four results before the fix.
