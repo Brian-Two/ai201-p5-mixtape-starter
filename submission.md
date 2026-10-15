@@ -61,3 +61,17 @@ The routes usually handle HTTP input/output while services handle database queri
 
 **Regression tests:** `tests/test_issue1_streak_regression.py`; the Sunday and November 1 cases failed before the fix.
 
+
+### **Issue #2 — Friends Listening Now shows people from yesterday**
+
+**How you reproduced it:** The new HTTP tests created a friendship from `viewer` to `friend`, inserted a listening event at 23:00 UTC on October 10, 2026, and fixed the feed clock at October 11, 09:00 UTC. Before the fix, `GET /feed/viewer/listening-now` returned that friend even though the event was yesterday. A second case compared a friend who listened at exactly midnight with another who listened at 23:59:59 the previous day: both appeared, instead of only today's listener.
+
+**How you found the root cause:** Starting at `routes/feed.py:listening_now()`, the investigation followed `get_friends_listening_now()` in `services/feed_service.py`, examined `ListeningEvent.listened_at` and the friendships relation in `models.py`, and compared the separate `get_activity_feed()` path. The friend-ID filter and newest-first deduplication explained who appears and which song is shown. The decisive step was calculating `cutoff`: at 09:00 it was yesterday at 09:00, which necessarily includes yesterday at 23:00. Fixed-clock tests confirmed that exact boundary error.
+
+**The root cause:** `cutoff = datetime.now(timezone.utc) - RECENT_THRESHOLD`, with `RECENT_THRESHOLD = timedelta(hours=24)`, defines a rolling 24-hour interval. The requested behavior is a calendar-day interval. A late-night listen therefore stays visible well into the next day even when that friend has not listened today. Changing deduplication would not help because the wrong event already passes the timestamp filter.
+
+**Your fix:** Set the cutoff to today's UTC midnight with `replace(hour=0, minute=0, second=0, microsecond=0)`, remove the unused rolling-window constant/import, and clarify the function's UTC-day contract. UTC follows the app's existing timestamp convention; the model has no user timezone setting. The query retains the inclusive `>=` boundary so a listen at exactly midnight qualifies.
+
+**Your side-effect check:** All four new feed tests passed. They check yesterday at 23:00 and 23:59:59 is excluded, midnight is included, multiple listens yield only the latest song per friend, multiple friends remain sorted newest first, and self/nonfriend events stay excluded. They also cover no friends and a missing user. Crucially, the older listen still appears in `/feed/viewer/activity`, which should retain historical activity. This confirms the narrower cutoff affects only listening-now, without deleting events or filtering the separate activity feed.
+
+**Regression tests:** `tests/test_issue2_feed_regression.py`; both previous-day boundary tests failed before the fix.
