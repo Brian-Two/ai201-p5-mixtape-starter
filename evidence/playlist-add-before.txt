@@ -1,0 +1,182 @@
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+_______ test_add_new_songs_sets_membership_metadata_and_preserves_order ________
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlite3.IntegrityError: NOT NULL constraint failed: playlist_entries.position
+
+The above exception was the direct cause of the following exception:
+tests/test_playlist_add_regression.py:8: in test_add_new_songs_sets_membership_metadata_and_preserves_order
+    response = api.post('/playlists/mix/songs', json={'song_id': song, 'added_by': 'friend'})
+.venv/lib/python3.10/site-packages/werkzeug/test.py:1171: in post
+    return self.open(*args, **kw)
+.venv/lib/python3.10/site-packages/flask/testing.py:235: in open
+    response = super().open(
+.venv/lib/python3.10/site-packages/werkzeug/test.py:1120: in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+.venv/lib/python3.10/site-packages/werkzeug/test.py:992: in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+.venv/lib/python3.10/site-packages/werkzeug/test.py:1268: in run_wsgi_app
+    app_rv = app(environ, start_response)
+.venv/lib/python3.10/site-packages/flask/app.py:1536: in __call__
+    return self.wsgi_app(environ, start_response)
+.venv/lib/python3.10/site-packages/flask/app.py:1514: in wsgi_app
+    response = self.handle_exception(e)
+.venv/lib/python3.10/site-packages/flask/app.py:1511: in wsgi_app
+    response = self.full_dispatch_request()
+.venv/lib/python3.10/site-packages/flask/app.py:919: in full_dispatch_request
+    rv = self.handle_user_exception(e)
+.venv/lib/python3.10/site-packages/flask/app.py:917: in full_dispatch_request
+    rv = self.dispatch_request()
+.venv/lib/python3.10/site-packages/flask/app.py:902: in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+routes/playlists.py:51: in add_song
+    add_to_playlist(playlist_id, song_id, added_by)
+services/notification_service.py:62: in add_to_playlist
+    db.session.commit()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/scoping.py:598: in commit
+    return self._proxied.commit()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:2035: in commit
+    trans.commit(_to_root=True)
+<string>:2: in commit
+    ???
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:1316: in commit
+    self._prepare_impl()
+<string>:2: in _prepare_impl
+    ???
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:1290: in _prepare_impl
+    self.session.flush()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+.venv/lib/python3.10/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py:590: in execute
+    self.dependency_processor.process_saves(uow, states)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py:1195: in process_saves
+    self._run_crud(
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py:1258: in _run_crud
+    connection.execute(statement, secondary_insert)
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+.venv/lib/python3.10/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) NOT NULL constraint failed: playlist_entries.position
+E   [SQL: INSERT INTO playlist_entries (playlist_id, song_id, added_at) VALUES (?, ?, ?)]
+E   [parameters: ('mix', 'song', '2026-10-15 03:13:32.159864')]
+E   (Background on this error at: https://sqlalche.me/e/20/gkpj)
+__________ test_append_uses_max_position_and_self_add_does_not_notify __________
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlite3.IntegrityError: NOT NULL constraint failed: playlist_entries.position
+
+The above exception was the direct cause of the following exception:
+tests/test_playlist_add_regression.py:27: in test_append_uses_max_position_and_self_add_does_not_notify
+    assert api.post('/playlists/mix/songs', json={'song_id': 'other', 'added_by': 'viewer'}).status_code == 201
+.venv/lib/python3.10/site-packages/werkzeug/test.py:1171: in post
+    return self.open(*args, **kw)
+.venv/lib/python3.10/site-packages/flask/testing.py:235: in open
+    response = super().open(
+.venv/lib/python3.10/site-packages/werkzeug/test.py:1120: in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+.venv/lib/python3.10/site-packages/werkzeug/test.py:992: in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+.venv/lib/python3.10/site-packages/werkzeug/test.py:1268: in run_wsgi_app
+    app_rv = app(environ, start_response)
+.venv/lib/python3.10/site-packages/flask/app.py:1536: in __call__
+    return self.wsgi_app(environ, start_response)
+.venv/lib/python3.10/site-packages/flask/app.py:1514: in wsgi_app
+    response = self.handle_exception(e)
+.venv/lib/python3.10/site-packages/flask/app.py:1511: in wsgi_app
+    response = self.full_dispatch_request()
+.venv/lib/python3.10/site-packages/flask/app.py:919: in full_dispatch_request
+    rv = self.handle_user_exception(e)
+.venv/lib/python3.10/site-packages/flask/app.py:917: in full_dispatch_request
+    rv = self.dispatch_request()
+.venv/lib/python3.10/site-packages/flask/app.py:902: in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+routes/playlists.py:51: in add_song
+    add_to_playlist(playlist_id, song_id, added_by)
+services/notification_service.py:62: in add_to_playlist
+    db.session.commit()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/scoping.py:598: in commit
+    return self._proxied.commit()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:2035: in commit
+    trans.commit(_to_root=True)
+<string>:2: in commit
+    ???
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:1316: in commit
+    self._prepare_impl()
+<string>:2: in _prepare_impl
+    ???
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:1290: in _prepare_impl
+    self.session.flush()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+.venv/lib/python3.10/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/unitofwork.py:590: in execute
+    self.dependency_processor.process_saves(uow, states)
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py:1195: in process_saves
+    self._run_crud(
+.venv/lib/python3.10/site-packages/sqlalchemy/orm/dependency.py:1258: in _run_crud
+    connection.execute(statement, secondary_insert)
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+.venv/lib/python3.10/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+.venv/lib/python3.10/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+E   sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) NOT NULL constraint failed: playlist_entries.position
+E   [SQL: INSERT INTO playlist_entries (playlist_id, song_id, added_at) VALUES (?, ?, ?)]
+E   [parameters: ('mix', 'other', '2026-10-15 03:13:32.464688')]
+E   (Background on this error at: https://sqlalche.me/e/20/gkpj)
+=========================== short test summary info ============================
+FAILED tests/test_playlist_add_regression.py::test_add_new_songs_sets_membership_metadata_and_preserves_order
+FAILED tests/test_playlist_add_regression.py::test_append_uses_max_position_and_self_add_does_not_notify
+2 failed, 1 passed in 0.63s

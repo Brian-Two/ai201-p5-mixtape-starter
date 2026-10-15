@@ -117,3 +117,17 @@ The routes usually handle HTTP input/output while services handle database queri
 **Your side-effect check:** All three original playlist tests and three added parameterized API cases passed (six tests total). The new cases cover empty, one-song, and seven-song playlists, then append another entry and assert it appears last and increases the count. Entries are inserted in reverse order with nonconsecutive positions to ensure the API still orders by stored position. Playlist metadata remains readable, and an unknown playlist still returns 404. This checks both sides of the off-by-one boundary and confirms retrieval order is preserved.
 
 **Regression tests:** `tests/test_issue5_playlist_regression.py`; all three cases failed before the fix, including the empty-start case after its first append.
+
+### Additional defect — Adding a new playlist song violates required metadata
+
+**How you reproduced it:** After the five reported fixes, the end-to-end check posted a song not already in `/playlists/mix/songs`. Two new tests raised SQLite `IntegrityError: NOT NULL constraint failed: playlist_entries.position`; invalid-ID handling still passed. The rating notification control and raw playlist fixtures had not exercised this insertion path. The failure is preserved in `evidence/playlist-add-before.txt`.
+
+**How you found the root cause:** Followed `routes/playlists.py:add_song()` → `notification_service.add_to_playlist()` → `playlist.songs.append(song)`, and compared the emitted insert with `models.py:playlist_entries` and the explicit inserts in `seed_data.py`. The failing SQL supplied playlist/song IDs and the timestamp but omitted the required `position` and `added_by` columns. The seed inserts supplied both, explaining why seeded retrieval worked while adding a new song did not.
+
+**The root cause:** Appending to a plain many-to-many relationship cannot populate custom, nonnullable association metadata automatically. Both `position` and `added_by` require explicit values. This is separate from the retrieval slice in Issue #5 and the missing rating notification in Issue #4.
+
+**Your fix:** Insert into `playlist_entries` explicitly, setting `added_by` to the acting user and `position` to the current maximum position in this playlist plus one (or one for an empty playlist). Using maximum rather than membership count preserves append order when positions contain gaps. The existing membership guard, validation, commit, and notification behavior remain in place.
+
+**Your side-effect check:** All three new addition tests passed. They post two new songs, inspect positions/adder/timestamps, retrieve the complete ordered list, verify sharer notifications, and re-add an existing song without duplicate membership or movement. A gapped playlist at position 10 appends at 11; a self-add does not notify. Invalid playlist/song/user IDs produce 400 responses with no new memberships or notifications. This small classroom app still uses its existing transaction/concurrency model; this change does not add concurrent-writer ordering guarantees.
+
+**Regression tests:** `tests/test_playlist_add_regression.py`. This additional fix has its own commit so the five graded fixes remain independently reviewable.
