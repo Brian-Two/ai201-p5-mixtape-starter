@@ -103,3 +103,17 @@ The routes usually handle HTTP input/output while services handle database queri
 **Your side-effect check:** All four notification regression tests passed. They verify rating persistence, correct recipient/type/message, no notification sent to the rater, marking the notification read, and unread-only filtering. Updating 2 stars to 4 retains one rating ID/row and creates the expected interaction notifications. Self-rating saves successfully without notifying, and out-of-range scores or missing song/user IDs create no notifications. The pre-existing playlist notification branch still works. These checks cover shared helpers and both rating creation/update branches, rather than just endpoint startup.
 
 **Regression tests:** `tests/test_issue4_notification_regression.py`; new-rating and updated-rating notification assertions failed before the fix. The playlist control intentionally used an existing membership to isolate notification behavior from adding a new association row; new playlist insertion is investigated separately below.
+
+### **Issue #5 — The last song in a playlist never shows up**
+
+**How you reproduced it:** The original five-song fixture returned four songs and failed both count and order assertions. Added API tests populated `playlist_entries` explicitly, including the required position/adder fields. For seven ordered entries, `GET /playlists/mix/songs` returned six; a one-song playlist returned zero. Appending another association moved the hidden position to the new last entry. Direct association inserts isolated the reported retrieval bug from the separate new-song insertion issue noted below.
+
+**How you found the root cause:** Followed `routes/playlists.py:get_songs()` into `services/playlist_service.py:get_playlist_songs()`. Checked `models.py:playlist_entries`, then the service's join, playlist-ID filter, and ascending position sort. The database fixture held every expected row, and the query requested all matching songs. The decisive step was inspecting the final serialization expression: it iterated `songs[:-1]`, dropping one already-retrieved song after the database query. This also explained why the missing song changed after an append.
+
+**The root cause:** Python's slice `songs[:-1]` excludes the last list element. The query orders by ascending position, so the excluded element is precisely the newest/highest-position song. The omission is unconditional: a one-song list becomes empty, and every nonempty playlist loses one item. Returning all playlist songs requires iterating the entire query result, not shortening it before serialization.
+
+**Your fix:** Serialize `songs` directly instead of `songs[:-1]`. The existing query, playlist validation, and order remain unchanged.
+
+**Your side-effect check:** All three original playlist tests and three added parameterized API cases passed (six tests total). The new cases cover empty, one-song, and seven-song playlists, then append another entry and assert it appears last and increases the count. Entries are inserted in reverse order with nonconsecutive positions to ensure the API still orders by stored position. Playlist metadata remains readable, and an unknown playlist still returns 404. This checks both sides of the off-by-one boundary and confirms retrieval order is preserved.
+
+**Regression tests:** `tests/test_issue5_playlist_regression.py`; all three cases failed before the fix, including the empty-start case after its first append.
