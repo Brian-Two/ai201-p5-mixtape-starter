@@ -1,0 +1,16 @@
+$ git branch --show-current
+bugfix/mixtape
+
+$ git log --oneline --decorate -12
+76cb057 (HEAD -> bugfix/mixtape) docs: finalize root cause analyses and verified AI collaboration record
+256c790 fix: persist position and adder when inserting playlist songs
+b50cc69 fix: return the final song in every nonempty playlist
+bec4788 fix: notify song sharers when another user rates their song
+83577ee fix: deduplicate song search results by ORM identity
+ab117b9 fix: limit friends listening now to the current UTC day
+36e4a16 fix: increment listening streaks on Sunday after Saturday
+69e5661 test: record pre-fix failures and add isolated API fixtures
+2b2b8b3 docs: map Mixtape architecture before bug investigation
+aaead6a (origin/main, origin/HEAD, main) Merge pull request #45 from sarcb/fix/1216538223584876-search-dedup
+dc87e8c search: use SQLAlchemy 2.0 select() so Bug #3 duplicates actually surface
+2dfdeaa Add .gitignore file and update README with setup instructions
