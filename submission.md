@@ -47,4 +47,17 @@ The routes usually handle HTTP input/output while services handle database queri
 
 ## Root cause analyses
 
-Entries will be added with their corresponding fixes after reproduction and verification.
+### **Issue #1 — My listening streak keeps resetting**
+
+**How you reproduced it:** Before changing services, the starter's Sunday test failed (`1` instead of `2`). The added HTTP regression set `friend.listening_streak = 12` and `last_listened_at` to Saturday, October 10, 2026, at 09:00 UTC. With the streak service clock fixed at Sunday, October 11, 09:00 UTC, `POST /songs/song/listen` succeeded, but `GET /users/friend/streak` returned `1` instead of `13`. The same fixture for each other weekday passed. See `evidence/regressions-before.txt`.
+
+**How you found the root cause:** The investigation followed `routes/songs.py:listen()` → `record_listening_event()` → `update_listening_streak()` in `services/streak_service.py`, then checked `routes/users.py:streak()` and `get_streak()` to establish that the GET simply reads the stored counter. `models.py` showed the counter and timestamp on `User`. The decisive observation was that a one-day gap still fell through to the reset branch when `today.weekday()` was 6; the parameterized endpoint test isolated Sunday as the failing weekday.
+
+**The root cause:** `elif days_since_last == 1 and today.weekday() != 6` adds an unrelated weekday restriction to the consecutive-day rule. Python numbers Sunday as 6, so Saturday-to-Sunday listening resets the counter even though `(today - last_date).days` equals 1. Calendar continuity depends on the date difference, not the name of the weekday; excluding Sunday contradicts the service's documented streak rules.
+
+**Your fix:** Removed `and today.weekday() != 6`. A one-day gap now increments on every weekday. The existing first-listen, same-day, and skipped-day branches remain in place.
+
+**Your side-effect check:** Ran the five original streak tests and nine added endpoint cases: all 14 passed. The new cases cover all seven weekdays, a second listen on the same day (two events saved but only one streak increment), a month boundary landing on Sunday, and a year boundary with naive UTC database timestamps. The original tests also verify initialization and reset after a skipped day. These checks target both the changed branch and adjacent branches that could accidentally be disturbed.
+
+**Regression tests:** `tests/test_issue1_streak_regression.py`; the Sunday and November 1 cases failed before the fix.
+
