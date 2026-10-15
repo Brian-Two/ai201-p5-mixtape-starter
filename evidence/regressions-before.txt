@@ -1,0 +1,210 @@
+......FF.FF..FFF..FFF                                                    [100%]
+=================================== FAILURES ===================================
+____________ test_listen_increments_on_every_consecutive_weekday[6] ____________
+
+api = <FlaskClient <Flask 'app'>>, day = 6
+
+    @pytest.mark.parametrize('day', range(7))
+    def test_listen_increments_on_every_consecutive_weekday(api, day):
+        now = datetime(2026, 10, 5, 9, tzinfo=timezone.utc) + timedelta(days=day)
+        user = db.session.get(User, 'friend')
+        user.listening_streak = 12
+        user.last_listened_at = now - timedelta(days=1)
+        db.session.commit()
+        with patch('services.streak_service.datetime') as clock:
+            clock.now.return_value = now
+            response = api.post('/songs/song/listen', json={'user_id': 'friend'})
+            assert response.status_code == 201
+>           assert api.get('/users/friend/streak').json['streak'] == 13
+E           assert 1 == 13
+
+tests/test_issue1_streak_regression.py:19: AssertionError
+__________ test_calendar_rollover_and_naive_database_timestamp[now0] ___________
+
+api = <FlaskClient <Flask 'app'>>
+now = datetime.datetime(2026, 11, 1, 0, 0, tzinfo=datetime.timezone.utc)
+
+    @pytest.mark.parametrize('now', [
+        datetime(2026, 11, 1, 0, tzinfo=timezone.utc),
+        datetime(2027, 1, 1, 0, tzinfo=timezone.utc),
+    ])
+    def test_calendar_rollover_and_naive_database_timestamp(api, now):
+        user = db.session.get(User, 'friend')
+        user.listening_streak = 12
+        user.last_listened_at = (now - timedelta(minutes=1)).replace(tzinfo=None)
+        db.session.commit()
+        with patch('services.streak_service.datetime') as clock:
+            clock.now.return_value = now
+            api.post('/songs/song/listen', json={'user_id': 'friend'})
+>       assert api.get('/users/friend/streak').json['streak'] == 13
+E       assert 1 == 13
+
+tests/test_issue1_streak_regression.py:38: AssertionError
+______________ test_previous_night_excluded_but_activity_retained ______________
+
+api = <FlaskClient <Flask 'app'>>
+
+    def test_previous_night_excluded_but_activity_retained(api):
+        befriend('friend')
+        add_event('friend', 10, 23)
+        db.session.commit()
+        with patch('services.feed_service.datetime') as clock:
+            clock.now.return_value = NOW
+            response = api.get('/feed/viewer/listening-now')
+            assert response.status_code == 200
+>           assert response.json == {'count': 0, 'feed': []}
+E           AssertionError: assert {'count': 1, ...song', ...}}]} == {'count': 0, 'feed': []}
+E             
+E             Differing items:
+E             {'feed': [{'friend': {'id': 'friend', 'last_listened_at': None, 'listening_streak': 0, 'username': 'friend'}, 'listened_at': '2026-10-10T23:00:00', 'song': {'album': None, 'artist': 'Borough Kings', 'genre': None, 'id': 'song', ...}}]} != {'feed': []}
+E             {'count': 1} != {'count': 0}
+E             Use -v to get more diff
+
+tests/test_issue2_feed_regression.py:26: AssertionError
+____________ test_midnight_included_yesterday_last_second_excluded _____________
+
+api = <FlaskClient <Flask 'app'>>
+
+    def test_midnight_included_yesterday_last_second_excluded(api):
+        befriend('friend')
+        befriend('outsider')
+        add_event('friend', 11, 0)
+        add_event('outsider', 10, 23, 59, second=59)
+        db.session.commit()
+        with patch('services.feed_service.datetime') as clock:
+            clock.now.return_value = NOW
+            feed = api.get('/feed/viewer/listening-now').json['feed']
+>       assert [item['friend']['id'] for item in feed] == ['friend']
+E       AssertionError: assert ['friend', 'outsider'] == ['friend']
+E         
+E         Left contains one more item: 'outsider'
+E         Use -v to get more diff
+
+tests/test_issue2_feed_regression.py:41: AssertionError
+_______________ test_multitag_match_is_unique_and_keeps_all_tags _______________
+
+api = <FlaskClient <Flask 'app'>>
+
+    def test_multitag_match_is_unique_and_keeps_all_tags(api):
+        song = db.session.get(Song, 'song')
+        song.tags = [Tag(name=name) for name in ('rap', 'hip-hop', 'boom bap')]
+        # A distinct recording with the same title must not be collapsed by title.
+        db.session.add(Song(id='second-recording', title=song.title, artist='Cover Band', shared_by='viewer'))
+        db.session.commit()
+        response = api.get('/songs/search?q=aNtHeM')
+        assert response.status_code == 200
+>       assert response.json['count'] == 2
+E       assert 4 == 2
+
+tests/test_issue3_search_regression.py:13: AssertionError
+_____________ test_rating_notifies_sharer_and_supports_read_filter _____________
+
+api = <FlaskClient <Flask 'app'>>
+
+    def test_rating_notifies_sharer_and_supports_read_filter(api):
+        response = api.post('/songs/song/rate', json={'user_id': 'friend', 'score': 5})
+        assert response.status_code == 201
+        assert Rating.query.one().score == 5
+        notifications = api.get('/users/viewer/notifications?unread_only=true').json
+>       assert notifications['count'] == 1
+E       assert 0 == 1
+
+tests/test_issue4_notification_regression.py:10: AssertionError
+____________ test_rating_update_keeps_single_row_and_notifies_again ____________
+
+api = <FlaskClient <Flask 'app'>>
+
+    def test_rating_update_keeps_single_row_and_notifies_again(api):
+        first = api.post('/songs/song/rate', json={'user_id': 'friend', 'score': 2})
+        second = api.post('/songs/song/rate', json={'user_id': 'friend', 'score': 4})
+        assert first.json['id'] == second.json['id']
+        assert Rating.query.count() == 1
+        assert Rating.query.one().score == 4
+>       assert Notification.query.filter_by(notification_type='song_rated').count() == 2
+E       AssertionError: assert 0 == 2
+E        +  where 0 = count()
+E        +    where count = <flask_sqlalchemy.query.Query object at 0x107427e80>.count
+E        +      where <flask_sqlalchemy.query.Query object at 0x107427e80> = filter_by(notification_type='song_rated')
+E        +        where filter_by = <flask_sqlalchemy.query.Query object at 0x107404af0>.filter_by
+E        +          where <flask_sqlalchemy.query.Query object at 0x107404af0> = Notification.query
+
+tests/test_issue4_notification_regression.py:29: AssertionError
+_______________ test_playlist_returns_every_position_in_order[0] _______________
+
+api = <FlaskClient <Flask 'app'>>, size = 0
+
+    @pytest.mark.parametrize('size', [0, 1, 7])
+    def test_playlist_returns_every_position_in_order(api, size):
+        for i in range(size):
+            db.session.add(Song(id=f'track-{i}', title=f'Track {i}', artist='DJ', shared_by='viewer'))
+        db.session.flush()
+        # Insert backwards and with gaps: retrieval must use position, not insertion/count.
+        for i in reversed(range(size)):
+            db.session.execute(playlist_entries.insert().values(
+                playlist_id='mix', song_id=f'track-{i}', position=(i + 1) * 10, added_by='friend'))
+        db.session.commit()
+        response = api.get('/playlists/mix/songs')
+        assert response.status_code == 200
+        assert response.json['count'] == size
+        assert [song['id'] for song in response.json['songs']] == [f'track-{i}' for i in range(size)]
+        # Reproduce the reported moving-last-item symptom with an eighth/new entry.
+        db.session.execute(playlist_entries.insert().values(
+            playlist_id='mix', song_id='other', position=(size + 1) * 10, added_by='friend'))
+        db.session.commit()
+        response = api.get('/playlists/mix/songs').json
+>       assert response['count'] == size + 1
+E       assert 0 == (0 + 1)
+
+tests/test_issue5_playlist_regression.py:25: AssertionError
+_______________ test_playlist_returns_every_position_in_order[1] _______________
+
+api = <FlaskClient <Flask 'app'>>, size = 1
+
+    @pytest.mark.parametrize('size', [0, 1, 7])
+    def test_playlist_returns_every_position_in_order(api, size):
+        for i in range(size):
+            db.session.add(Song(id=f'track-{i}', title=f'Track {i}', artist='DJ', shared_by='viewer'))
+        db.session.flush()
+        # Insert backwards and with gaps: retrieval must use position, not insertion/count.
+        for i in reversed(range(size)):
+            db.session.execute(playlist_entries.insert().values(
+                playlist_id='mix', song_id=f'track-{i}', position=(i + 1) * 10, added_by='friend'))
+        db.session.commit()
+        response = api.get('/playlists/mix/songs')
+        assert response.status_code == 200
+>       assert response.json['count'] == size
+E       assert 0 == 1
+
+tests/test_issue5_playlist_regression.py:18: AssertionError
+_______________ test_playlist_returns_every_position_in_order[7] _______________
+
+api = <FlaskClient <Flask 'app'>>, size = 7
+
+    @pytest.mark.parametrize('size', [0, 1, 7])
+    def test_playlist_returns_every_position_in_order(api, size):
+        for i in range(size):
+            db.session.add(Song(id=f'track-{i}', title=f'Track {i}', artist='DJ', shared_by='viewer'))
+        db.session.flush()
+        # Insert backwards and with gaps: retrieval must use position, not insertion/count.
+        for i in reversed(range(size)):
+            db.session.execute(playlist_entries.insert().values(
+                playlist_id='mix', song_id=f'track-{i}', position=(i + 1) * 10, added_by='friend'))
+        db.session.commit()
+        response = api.get('/playlists/mix/songs')
+        assert response.status_code == 200
+>       assert response.json['count'] == size
+E       assert 6 == 7
+
+tests/test_issue5_playlist_regression.py:18: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_issue1_streak_regression.py::test_listen_increments_on_every_consecutive_weekday[6]
+FAILED tests/test_issue1_streak_regression.py::test_calendar_rollover_and_naive_database_timestamp[now0]
+FAILED tests/test_issue2_feed_regression.py::test_previous_night_excluded_but_activity_retained
+FAILED tests/test_issue2_feed_regression.py::test_midnight_included_yesterday_last_second_excluded
+FAILED tests/test_issue3_search_regression.py::test_multitag_match_is_unique_and_keeps_all_tags
+FAILED tests/test_issue4_notification_regression.py::test_rating_notifies_sharer_and_supports_read_filter
+FAILED tests/test_issue4_notification_regression.py::test_rating_update_keeps_single_row_and_notifies_again
+FAILED tests/test_issue5_playlist_regression.py::test_playlist_returns_every_position_in_order[0]
+FAILED tests/test_issue5_playlist_regression.py::test_playlist_returns_every_position_in_order[1]
+FAILED tests/test_issue5_playlist_regression.py::test_playlist_returns_every_position_in_order[7]
+10 failed, 11 passed in 0.33s
