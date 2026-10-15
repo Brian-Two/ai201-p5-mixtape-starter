@@ -1,0 +1,5 @@
+PASS: real Flask HTTP server on 127.0.0.1:5056, disposable SQLite database
+PASS: unique three-tag search; yesterday excluded from listening-now but retained in activity
+PASS: listen saved; streak 12 -> 13; current listen appears in feed
+PASS: rating and playlist-add notifications persisted for song owner
+PASS: create playlist -> add new song -> retrieve its final/only song

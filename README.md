@@ -1,5 +1,16 @@
 # Mixtape
 
+## Project 5 submission
+
+The completed work is on [`bugfix/mixtape`](https://github.com/Brian-Two/ai201-p5-mixtape-starter/tree/bugfix/mixtape).
+See [`submission.md`](submission.md) for the architecture map, AI disclosure, five root cause analyses, and validation evidence.
+The branch includes 37 passing tests and separate commits for each fix.
+
+Run tests from the repository root with `python -m pytest tests/ -q` after installing the requirements.
+For a real HTTP smoke check against a temporary database, run `PYTHONPATH=. python scripts/verify_http.py` (requires free port 5056).
+
+---
+
 A social music app where friends share songs, build collaborative playlists, and track listening stats.
 
 This is the starter repo for **Project 5: Mixtape Bug Hunt**. The app has five open issues in its tracker. Your job is to find, fix, and document at least three of them.

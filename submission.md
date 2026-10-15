@@ -6,7 +6,14 @@
 
 ## AI usage
 
-This project was completed with substantial Codex assistance at my request. Codex read the starter, traced the code, implemented fixes, ran checks, and drafted this document. The investigation and verification described below are agent-executed; they are not a claim that I independently performed those actions. Specific debugging examples and results are recorded as the work progresses.
+This project was completed with substantial Codex assistance at my request. Codex read the starter, traced the code, implemented fixes, ran checks, and drafted this document. The investigation and verification described below are agent-executed; they are not a claim that I independently performed those actions. Specific uses:
+
+1. **Architecture and call-chain navigation:** Codex read `README.md`, `app.py`, the models, routes, and services to explain the responsibilities and trace the rating and feed flows. The architectural map was committed first (`2b2b8b3`), before reproduction tests or service edits. In particular, following `rate()` to `rate_song()` established where ratings are persisted and where notification work would need to be explicit.
+2. **Search diagnosis:** Codex compared zero-, one-, and three-tag fixtures and traced the outer join through `.scalars().all()`. It explained why SQL rows can repeat an ORM identity. That explanation was verified by executing the original failing tests and an added API test that also preserves distinct same-title recordings and all tags; it was not accepted solely from generated prose.
+3. **Boundary debugging:** Codex constructed fixed-clock tests for every weekday and for UTC midnight. These separated a Sunday-specific comparison from a date-gap issue, and a rolling 24-hour cutoff from a calendar-day cutoff. The recorded pre-fix failures and post-fix passes provide executable checks of those explanations.
+4. **A concrete course correction:** The initial targeted rating/playlist checks were incomplete: they used an existing playlist membership or explicit database inserts. An actual POST for a new playlist song then raised a NOT NULL error. Codex traced that back to missing association metadata, added a separate regression and fix, and reran the full HTTP flow. Thus the initial assumption that fixing the five reported service defects was sufficient for the whole workflow was revised based on execution evidence.
+
+All verification above was executed by Codex. No independent student verification or manual debugging conversation is invented here. The saved tests, failure logs, and commit history make the work inspectable.
 
 ## Codebase map — orientation before bug work
 
@@ -106,7 +113,7 @@ The routes usually handle HTTP input/output while services handle database queri
 
 ### **Issue #5 — The last song in a playlist never shows up**
 
-**How you reproduced it:** The original five-song fixture returned four songs and failed both count and order assertions. Added API tests populated `playlist_entries` explicitly, including the required position/adder fields. For seven ordered entries, `GET /playlists/mix/songs` returned six; a one-song playlist returned zero. Appending another association moved the hidden position to the new last entry. Direct association inserts isolated the reported retrieval bug from the separate new-song insertion issue noted below.
+**How you reproduced it:** The original five-song fixture returned four songs and failed both count and order assertions. Added API tests populated `playlist_entries` explicitly, including the required position/adder fields. For seven ordered entries, `GET /playlists/mix/songs` returned six; a one-song playlist returned zero. The missing final position explains the reported moving-last-item symptom; the append assertions below verify that the fixed version returns both the previously last song and the new one. Direct association inserts isolated the reported retrieval bug from the separate new-song insertion issue noted below.
 
 **How you found the root cause:** Followed `routes/playlists.py:get_songs()` into `services/playlist_service.py:get_playlist_songs()`. Checked `models.py:playlist_entries`, then the service's join, playlist-ID filter, and ascending position sort. The database fixture held every expected row, and the query requested all matching songs. The decisive step was inspecting the final serialization expression: it iterated `songs[:-1]`, dropping one already-retrieved song after the database query. This also explained why the missing song changed after an append.
 
@@ -131,3 +138,19 @@ The routes usually handle HTTP input/output while services handle database queri
 **Your side-effect check:** All three new addition tests passed. They post two new songs, inspect positions/adder/timestamps, retrieve the complete ordered list, verify sharer notifications, and re-add an existing song without duplicate membership or movement. A gapped playlist at position 10 appends at 11; a self-add does not notify. Invalid playlist/song/user IDs produce 400 responses with no new memberships or notifications. This small classroom app still uses its existing transaction/concurrency model; this change does not add concurrent-writer ordering guarantees.
 
 **Regression tests:** `tests/test_playlist_add_regression.py`. This additional fix has its own commit so the five graded fixes remain independently reviewable.
+
+## Final validation and commit evidence
+
+- **Five reported issues fixed**, each in its own conventional `fix:` commit, plus one separate fix for the additional playlist insertion defect.
+- **37 tests passed**: the 13 original tests plus 24 added regression cases. Run `.venv/bin/python -m pytest tests/ -q` after setup; see [final test output](evidence/final-tests.txt).
+- Before fixes: the original suite had **4 failed / 9 passed**, and the 21 new issue-specific cases had **10 failed / 11 passed**. The three additional playlist-add cases initially had **2 failed / 1 passed**. These failures are preserved under `evidence/`.
+- A real Flask server passed search, listening, feed, rating, notifications, playlist creation, song insertion, and playlist retrieval checks using a disposable SQLite database. Reproduce from the repository root with `PYTHONPATH=. .venv/bin/python scripts/verify_http.py` (port 5056 must be free). See [HTTP smoke output](evidence/live-smoke.txt).
+- Python compilation and `git diff --check` passed. Tests were executed with Python 3.10, Flask 3.1.3, Flask-SQLAlchemy 3.1.1, SQLAlchemy 2.0.54, and pytest 9.1.1.
+- [Captured commit log](evidence/git-log.txt) and [commit-log screenshot](evidence/commit-history.png). The screenshot shows the actual saved `git log --oneline --decorate` output rendered in a browser, not a simulated terminal.
+- [Live branch commit history](https://github.com/Brian-Two/ai201-p5-mixtape-starter/commits/bugfix/mixtape).
+
+### Submission link
+
+https://github.com/Brian-Two/ai201-p5-mixtape-starter/tree/bugfix/mixtape
+
+The branch contains this root-level `submission.md`, all fixes, tests, and evidence. The course-portal submission itself is left to the student.

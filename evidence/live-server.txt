@@ -1,0 +1,16 @@
+ * Serving Flask app 'app:create_app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5056
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [14/Oct/2026 23:14:50] "GET /songs/search?q=Anthem HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "GET /feed/owner/listening-now HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "GET /feed/owner/activity HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "[35m[1mPOST /songs/song/listen HTTP/1.1[0m" 201 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "GET /users/friend/streak HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "GET /feed/owner/listening-now HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "[35m[1mPOST /songs/song/rate HTTP/1.1[0m" 201 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "[35m[1mPOST /playlists/ HTTP/1.1[0m" 201 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "[35m[1mPOST /playlists/99ce46ee-7b24-48a3-86d2-06531fb38eb5/songs HTTP/1.1[0m" 201 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "GET /playlists/99ce46ee-7b24-48a3-86d2-06531fb38eb5/songs HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 23:14:50] "GET /users/owner/notifications HTTP/1.1" 200 -
